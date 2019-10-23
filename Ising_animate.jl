@@ -79,13 +79,22 @@ function an(shot,sys_size,site)
     gif(out,"C:\\Users\\mao\\Desktop\\数値計算\\Ising_1_fps15.gif",fps=15)
 end
 
+function mpfour(shot,sys_size,site)
+    out=@animate for i=1:shot
+        make_anim(sys_size,site)
+    end
+    mp4(out,"tmp//Ising_1_fps15.mp4",fps=15)
+end
+
+
 function gi(shot,sys_size,site)
     @gif for i=1:shot
         make_anim(sys_size,site)
     end
 end
 
-println(@timev an(shot,sys_size,site))
+mpfour(shot,sys_size,site)
+#println(@timev an(shot,sys_size,site))
 #println(@timev gi(shot,sys_size,site)) #gifのほうが遅い？
 
 

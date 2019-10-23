@@ -27,22 +27,14 @@ end
 
 function oneshot(interval,dx,dt,sys_size,variable)
     for time in 1:interval
-        global variable+=dt*onetime(dx,dt,sys_size,variable)
+        variable+=dt*onetime(dx,dt,sys_size,variable)
     end
     return variable
 end
 
-function make_frame(anim,x_range,y_range,interval,dx,dt,sys_size,variable)
+function make_frame(x_range,y_range,interval,dx,dt,sys_size,variable)
     variable=oneshot(interval,dx,dt,sys_size,variable)
-    plt=heatmap(x_range,y_range,variable,size=(400,400))
-    frame(anim,plt)
-end
-
-function make_animate(shot,anim,x_range,y_range,interval,dx,dt,sys_size,u)
-    for i in 1:shot
-        make_frame(anim,x_range,y_range,interval,dx,dt,sys_size,u)
-    end
-    #return anim
+    heatmap(x_range,y_range,variable,size=(2*sys_size,2*sys_size))
 end
 ####################################################################################
 println("input size")
@@ -65,13 +57,14 @@ shot=50
 #=
 anim = @animate for i=1:shot
     global u=oneshot(interval,dx,dt,sys_size,u)     #forの中では新しくlocal scopeを作るのでglobalにしないと値の更新がされない。（adapさんに教えてもらった）
-    heatmap(x_range,y_range,u,size=(5*sys_size,5*sys_size))
-end=#
+    plt=heatmap(x_range,y_range,u,size=(5*sys_size,5*sys_size))
+    frame(anim,plt)
+end
+=#
 
-anim=Animation()
-make_animate(shot,anim,x_range,y_range,interval,dx,dt,sys_size,u)
-
+anim=@animate for i in 1:shot
+    global u=oneshot(interval,dx,dt,sys_size,u)
+end
 
 #heatmap(x_range,y_range,u)
-if isfile("C:\\Users\\mao\\Desktop\\数値計算\\tmp\\diffusion.mp4"); rm("C:\\Users\\mao\\Desktop\\数値計算\\tmp\\diffusion.mp4"); end
-gif(anim,"tmp\\diffusion.gif",fps=15)
+mp4(anim,"C:\\Users\\mao\\Desktop\\数値計算\\tmp\\diffusion.mp4",fps=15)
