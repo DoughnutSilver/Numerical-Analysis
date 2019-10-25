@@ -5,7 +5,7 @@ This program makes turing pattern by using FitzHugh-Nagumo-model
     dv/dt   =Dv △^2v + g(v,v)
 <FitzHugh-Nagumo-model>
     f(u,v)=u-u^3-v
-    g(u,v)=γ(u-αuv-β)
+    g(u,v)=γ(u-αv-β)
 ----------------------------------------------------------------------------------=#
 #using DifferentialEquations
 #using ParameterizedFunctions
@@ -22,9 +22,9 @@ end
 
 function g(u::Float64,v::Float64)
     α = 0.5
-    β = 0.004
+    β = 0.05
     γ = 26.0
-    return γ*(u-α*u*v-β)
+    return γ*(u-α*v-β)
 end
 
 function diffusion(system_parameter,distribution)
@@ -102,7 +102,7 @@ end
 
 
 model=model_parameter(1.0*10^(-4) ,1.0*10^(-2))
-sys=system_parameter(128,10,75,0.5,0.04) #dx^2>dt
+sys=system_parameter(128,10,75,0.50,0.04) #dx^2>dt
 u=rand(sys.size,sys.size)
 v=rand(sys.size,sys.size)
 var=variable(u,v)
@@ -124,5 +124,4 @@ end
 heatmap(x_range,y_range,var.u-var.v,size=(400,400))
 
 #make_gif(x_range,y_range,model,sys,var)
-
 

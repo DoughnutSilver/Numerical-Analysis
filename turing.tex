@@ -1,0 +1,169 @@
+\documentclass{jsarticle}
+\usepackage[dvipdfmx]{graphicx}
+\usepackage[dvipdfmx]{hyperref}
+\usepackage[dvipdfmx]{color}
+\usepackage{float}
+\usepackage{tikz}
+\usepackage{ascmac,amsmath,amsfonts,amsthm,amssymb}
+\usepackage{url}
+\usepackage[compat=1.1.0]{tikz-feynhand}
+\usepackage{empheq}
+\usepackage{bm}
+% general
+\newcommand{\thus}{\raisebox{.2ex}{.}\raisebox{1.2ex}{.}\raisebox{.2ex}{.}\qquad} 
+\newcommand{\floor}[1]{\lfloor #1 \rfloor}
+\newcommand{\norm}[1]{ \left|\left| #1 \right|\right| }
+\newcommand{\vb}[1]{\mathbf{#1}}
+\newcommand{\abs}[1]{{\left| #1 \right|}}
+\newcommand{\expval}[1]{\langle #1 \rangle}
+\newcommand{\grad}[1]{\mathrm{grad}\ #1}                    
+\renewcommand{\div}[1]{\mathrm{div}\ #1}
+\newcommand{\rot}[1]{\mathrm{rot}\ #1}
+\newcommand{\pdv}[2]{\frac{\partial #1}{\partial #2}}       %偏微分
+\newcommand{\dv}[2]{\frac{\mathrm{d} #1}{\mathrm{d} #2}}    %微分
+\newcommand{\ldv}[2]{\frac{\mathrm{D} #1}{\mathrm{D} #2}}   %ラグランジュ微分
+\newcommand{\fdv}[2]{\frac{\delta #1}{\delta #2}}           %汎関数微分
+\newenvironment{itmbx}[1]{\begin{itembox}[l]{#1}}{\end{itembox}}
+\newenvironment{warn}{\color{red}\begin{itmbx}{\textcolor{black}{注意}}\color{black}}{\end{itmbx}}
+\newcommand{\skakko}[1]{{\left(#1\right)}}                  %()
+\newcommand{\mkakko}[1]{{\left[#1\right]}}                  %[]
+\newcommand{\lkakko}[1]{{\left\{#1\right\}}}                %{}
+\newcommand{\convination}[2]{\left(\begin{array}{c}{#1}\\{#2}\end{array}\right)}
+\newcommand{\jacobiid}[3]{\mkakko{#1,\mkakko{#2,#3}}+\mkakko{#2,\mkakko{#3,#1}}+\mkakko{#3,\mkakko{#1,#2}}}
+\newcommand{\mspan}[1]{ \mathrm{Span}\lkakko{#1} }
+\newcommand{\T}{{\mathrm{T}}}                               %時間順序
+\newcommand{\tr}[1]{\mathrm{Tr}\lkakko{#1}}                 %Tr
+\newenvironment{calc}{\color{gray}}{\color{blue}}
+\newcommand{\mel}[3]{\langle #1 | #2 | #3 \rangle}
+\newcommand{\ket}[1]{| #1 \rangle}
+\newcommand{\bra}[1]{\langle #1 |}
+\newcommand{\braket}[2]{\langle #1 | #2 \rangle}
+\newcommand{\op}[1]{\hat{\mathcal{#1}}}                     %作用素
+\newcommand{\asin}{\mathrm{Arcsin}}
+\newcommand{\acos}{\mathrm{Arccos}}
+\newcommand{\atan}{\mathrm{Arctan}}
+\newcommand{\asinh}{\mathrm{Arcsinh}}
+\newcommand{\acosh}{\mathrm{Arccosh}}
+\newcommand{\atanh}{\mathrm{Arctanh}}
+\renewcommand{\Re}{\mathfrak{Re}}
+\renewcommand{\Im}{\mathfrak{Im}}
+\newcommand{\convcirc}{{\ \raisebox{-.5ex}{,}\mspace{-7mu}\raisebox{.5ex}{$\circ$}\ }}
+\theoremstyle{definition}
+\newtheorem{theorem}{定理}
+\newtheorem*{theorem*}{定理}
+\newtheorem{definition}[theorem]{定義}
+\newtheorem*{definition*}{定義}
+\newtheorem{lemma}[theorem]{補題}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+\title{Turing反応}
+\author{Shumpei, Mao}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\setcounter{tocdepth}{3}
+\tableofcontents
+
+
+\part{Intro}\label{Intro}
+今回やりたいレシピは
+\begin{itemize}
+    \item Turing反応のシミュレーションをJuliaでできるようにする
+    \item 高速化
+    \item 初期分布、パラメータ、モデルと一定ステップ後の分布をセットにしたデータセットを作る
+    \item 適切な手法で学習させる
+    \item 人間の発生段階でのパターン形成や、現実には取り扱いにくい物質と既存の物質のセットに関して拡散係数や反応経路を推測する
+\end{itemize}
+
+\part{原理論}\label{Theory}
+Turing反応式の一般式
+\begin{align}\label{Turing_reaction_eq}
+    \frac{du}{dt}=&D_u \nabla^2 u+f(u,v)\\
+    \frac{dv}{dt}=&D_v \nabla^2 v+g(u,v)
+\end{align}
+であり、fやgを変化させることによってモデルを区別する。
+\subsection{FitzHung-Nagumo}\label{FitzHung-Nagumo}
+FitzHugn-南雲モデルでは
+\begin{align*}
+    f(u,v)=&u-u^3-v\\
+    g(u,v)=&\gamma\skakko{u-\alpha v-\beta }
+\end{align*}
+であり、解析を行うにはまず、線形近似を行う。非線形項$f,g$に対して$f\skakko{\tilde{u},\tilde{v}}=0,g\skakko{\tilde{u},\tilde{v}}=0$
+となる定数$\tilde{u},\tilde{v}$を考えると、その周りにおいて
+\begin{align*}
+    u=&\tilde{u}+ae^{i\skakko{kr-\omega t}}\\
+    v=&\tilde{v}+be^{i\skakko{kr-\omega t}}
+\end{align*}
+と展開することができる。これを使うと、
+\begin{align}
+    f\skakko{u,v}=f\skakko{\tilde{u},\tilde{v}}+f_u\skakko{\tilde{u},\tilde{v}}ae^{i\skakko{kr-\omega t}}+f_v\skakko{\tilde{u},\tilde{v}}be^{i\skakko{kx-\omega t}}+o(a,b)
+\end{align}
+のようになるので、Turing方程式は
+\begin{align}
+    -i\omega
+    \begin{pmatrix}
+        a\\
+        b
+    \end{pmatrix}
+    =
+    \begin{pmatrix}
+        -\abs{\mathbf{k}}^2D_u+f_u     &   f_v         \\
+        g_u             &   -\abs{\mathbf{k}}^2D_v+g_v 
+    \end{pmatrix}
+    \begin{pmatrix}
+        a\\
+        b
+    \end{pmatrix}
+\end{align}
+であり、解が存在するためには
+\begin{align*}
+    0
+    =&
+    \begin{vmatrix}
+        i\omega-\abs{\mathbf{k}}^2D_u+f_u     &   f_v         \\
+        g_u             &   i\omega-\abs{\mathbf{k}}^2D_v+g_v 
+    \end{vmatrix}\\
+    =&\skakko{i\omega-\abs{\mathbf{k}}^2D_u+f_u}\skakko{i\omega-\abs{\mathbf{k}}^2D_v+g_v}-f_vg_u\\
+    =&-\omega^2+i\omega\mkakko{-\abs{\mathbf{k}}^2\skakko{D_u+D_v}+f_u+g_v}+\abs{\mathbf{k}}^4D_uD_v-\abs{\mathbf{k}}^2\skakko{D_ug_v+D_vf_u}+f_ug_v-f_vg_u\\
+    =&-\omega^2+i\omega A\skakko{u,v}+B\skakko{u,v}
+\end{align*}
+となる$\omega$があればよく、2次方程式の解の存在条件から
+
+
+
+
+
+\part{数値計算}\label{Numarical Analysis}
+Turing反応式の一般式
+\begin{align}\label{Turing_reaction_eq}
+    \frac{du}{dt}=&D_u \nabla^2 u+f(u,v)\\
+    \frac{dv}{dt}=&D_v \nabla^2 v+g(u,v)
+\end{align}
+であり、fやgを変化させることによってモデルを区別する。
+今回の計算では時間を$dt$、空間を$dx$に分割することにする。すると、対応する差分方程式は
+\begin{align*}
+    \frac{u(t+dt,x,y)-u(t,x,y)}{dt}=&D_u\frac{u(t,x+dx,y)-2u(t,x,y)+u(t,x+dx,y)}{dx^2}\\
+    +& D_u\frac{u(t,x,y+dx)-2u(t,x,y)+u(t,x,y-dx)}{dx^2}+f(u,v)\\
+    \frac{v(t+dt,x,y)-v(t,x,y)}{dt}=&D_v\frac{v(t,x+dx,y)-2v(t,x,y)+v(t,x+dx,y)}{dx^2}\\
+    +& D_v\frac{v(t,x,y+dx)-2v(t,x,y)+v(t,x,y-dx)}{dx^2}+f(u,v)
+\end{align*}
+  FitzHung-南雲モデル
+
+今回のモデルでは
+\begin{align}
+    f(u,v)=&u-u^3-v\\
+    g(u,v)=&γ(u-αuv-β)
+\end{align}
+であり、
+
+
+
+\bibliography{ref} %hoge.bibから拡張子を外した名前
+\bibliographystyle{junsrt} %参考文献出力スタイル
+
+\end{document}
