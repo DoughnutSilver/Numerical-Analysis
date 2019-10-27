@@ -8,10 +8,20 @@ This program makes turing pattern by using FitzHugh-Nagumo-model
     g(u,v)=γ(u-αv-β)
 
 <Stability condition>
-    DΔt/Δx^2 <1/2    
+    Let u_n=A^ne^{iknx} and substitute into Turing eq. Then we get
+    Ae^{ikx}-1=DΔt(e^{ikx}-2+e^{-ikx})/Δx^2-A^{2n}e^{i2nkx}
+    To make this program stable, we have to find |A|<1. Thus ignoring A^{2n} (<< A if |A|<1)
+    Ae^{ikx}-1=DΔt(e^{ikx}-2+e^{-ikx})/Δx^2
+    A=[DΔt(2cos(kx)-2)/Δx^2+1]e^{-ikx}
+    A=[-D4sin^2(kx/2)Δt/Δx^2+1]e^{-ikx}
+    |A|=[-D4sin^2(kx/2)Δt/Δx^2+1]
+    if |A|<1 then 2>4Dsin^2(kx/2)Δt/Δx^2>0
+    1/2>DΔt/Δx^2>0
+    in tihs program 
+    D=10^-2 so 
+    Δt<Δx^2*50
+    (Δt,Δx)=(1,0.25)0.125<0.5
 ----------------------------------------------------------------------------------=#
-#using DifferentialEquations
-#using ParameterizedFunctions
 using Plots
 using LinearAlgebra
 gr()
@@ -25,20 +35,24 @@ end
 
 function g(u::Float64,v::Float64)
     α =0.5
-    β =0.0
+    β =0.05
     γ =26.0
     return γ*(u-α*v-β)
 end
 
 function diffusion(system_parameter,distribution)
-    out=zeros(system_parameter.size,system_parameter.size)
-    out=-4*copy(distribution)
+    out=similar(distribution)
+    @. out=-4*distribution
     #diff x
-        @inbounds out+=[distribution[2:system_parameter.size,:]   ; distribution[1,:]']
-        @inbounds out+=[distribution[system_parameter.size,:]'    ; distribution[1:system_parameter.size-1,:]]
+        @. @inbounds out[1:system_parameter.size-1,:]+=@view distribution[2:system_parameter.size,:]
+        @. @inbounds out[system_parameter.size,:]+=@view distribution[1,:]
+        @. @inbounds out[2:system_parameter.size,:]+=@view distribution[1:system_parameter.size-1,:]
+        @. @inbounds out[1,:]+=@view distribution[system_parameter.size,:]
     #diff y
-        @inbounds out+=[distribution[:,2:system_parameter.size]   distribution[:,1]]
-        @inbounds out+=[distribution[:,system_parameter.size]     distribution[:,1:system_parameter.size-1]]
+        @. @inbounds out[:,1:system_parameter.size-1]+=@view distribution[:,2:system_parameter.size]
+        @. @inbounds out[:,system_parameter.size]+=@view distribution[:,1]
+        @. @inbounds out[:,2:system_parameter.size]+=@view distribution[:,1:system_parameter.size-1]
+        @. @inbounds out[:,1]+=@view distribution[:,system_parameter.size]
     local   invdx=1.0/system_parameter.dx^2
     return  out*invdx
 end
@@ -103,7 +117,7 @@ end
 
 
 model=model_parameter(1.0*10^(-4) ,1.0*10^(-2))
-sys=system_parameter(128,10,75,10^(-2),10^(-4)) #dx^2>dt  #0.50,0.04がよかった
+sys=system_parameter(64,10,75,10^(-2),10^(-4)) #dx^2>dt  #0.50,0.04がよかった
 u=rand(sys.size,sys.size)
 v=rand(sys.size,sys.size)
 var=variable(u,v)
@@ -119,13 +133,25 @@ y_range=1:1:sys.size
 #display(plt)
 
 function calc(model_parameter,system_parameter,variable)
-    for time in 1:1000000
-        global variable.u=onestep_u(model_parameter,system_parameter,variable)
-        global variable.v=onestep_v(model_parameter,system_parameter,variable)
+    for time in 1:500000
+        variable.u=onestep_u(model_parameter,system_parameter,variable)
+        variable.v=onestep_v(model_parameter,system_parameter,variable)
     end
 end
 
-@timev calc(model,sys,var)
+function make_png(x_range,y_range,model_parameter,system_parameter,variable)
+    calc(model_parameter,system_parameter,variable)
+    contour(x_range,y_range,variable.u-variable.v,size=(400,400),fill=true)
+end
+
+#make_png(x_range,y_range,model,sys,var)
+
+
+function speed(model_parameter,system_parameter,variable)
+    @time calc(model_parameter,system_parameter,variable)
+end
+
+speed(model,sys,var)
 
 #make_gif(x_range,y_range,model,sys,var)
 
