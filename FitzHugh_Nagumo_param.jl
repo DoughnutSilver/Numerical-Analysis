@@ -29,15 +29,18 @@ This program makes turing pattern by using FitzHugh-Nagumo-model
 #=----------------------------------------------------------------------------------
 関数
 ----------------------------------------------------------------------------------=#
-function f(u::Float64,v::Float64)
-    return u-u^3-v
+function generate_g(model_parameter)
+    func="function g(u ::Float64,v ::Float64) \n
+            return $(model_parameter.γ)*(u-($model_parameter.α)*v-$(model_parameter.β))     \n
+        end     \n"
+    func=Meta.parse(func)
+    eval(func)
+    return g
 end
 
-function g(u::Float64,v::Float64)
-    α =0.5
-    β =0.05
-    γ =26.0
-    return γ*(u-α*v-β)
+
+function f(u::Float64,v::Float64)
+    return u-u^3-v
 end
 
 function diffusion(system_parameter,distribution)
@@ -54,7 +57,6 @@ function diffusion(system_parameter,distribution)
         @. @inbounds out[:,2:system_parameter.size]+=@view distribution[:,1:system_parameter.size-1]
         @. @inbounds out[:,1]+=@view distribution[:,system_parameter.size]
     return  out*system_parameter.invdx
-    out=0
 end
 
 function onestep_u(model_parameter,system_parameter,variable)
@@ -81,14 +83,14 @@ function oneshot(x,y,model_parameter,system_parameter,variable)
 end
 
 function make_mp4(x,y,model_parameter,system_parameter,variable)
-    out=@animate for i=1:system_parameter.shot
+    out=@animate for i=1:system_parameter.shot i::Int32
         oneshot(x,y,model_parameter,system_parameter,variable)
     end
     mp4(out,"tmp//FitzHugh_Nagumo.mp4",fps=15)
 end
 
 function make_gif(x,y,model_parameter,system_parameter,variable)
-    out=@animate for i=1:system_parameter.shot
+    out=@animate for i=1:system_parameter.shot i::Int32
         oneshot(x,y,model_parameter,system_parameter,variable)
     end
 end
@@ -100,6 +102,9 @@ end
 struct model_parameter
     Du :: Float64
     Dv :: Float64
+    α  :: Float64
+    β  :: Float64
+    γ  :: Float64
 end
 
 struct system_parameter
@@ -116,7 +121,7 @@ mutable struct variable
 end
 
 
-model=model_parameter(1.0*10^(-4) ,1.0*10^(-2))
+model=model_parameter(1.0*10^(-4) ,1.0*10^(-2),0.5,0.05,26.0)
 sys=system_parameter(64,10,75,10^4,10^(-4)) #dx^2>dt  #0.50,0.04がよかった
 u=rand(sys.size,sys.size)
 v=rand(sys.size,sys.size)
@@ -131,6 +136,8 @@ y_range=1:1:sys.size
 
 #plt=heatmap(x_range,y_range,var.u)
 #display(plt)
+
+generate_g(model)
 
 function calc(model_parameter,system_parameter,variable)
     for time in 1:500000 time::Int64
